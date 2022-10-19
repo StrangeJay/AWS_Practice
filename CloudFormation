@@ -1,0 +1,99 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: This template would create a VPC with IGW and a public subnet, 
+                     a userdata bash script would be used to deploy an apache server in it.
+Resources:   
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 172.31.0.0/16
+      EnableDnsHostnames: True
+      EnableDnsSupport: True
+      Tags:
+        -  Key: jayskey
+           Value: jayskeyvalue
+  Subnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId:
+        Ref: VPC
+      CidrBlock: 172.31.16.0/20
+      AvailabilityZone: us-east-1a
+      MapPublicIpOnLaunch: True
+      Tags:
+      - Key: jayskey
+        Value: jayskeyvalue
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+        Tags:
+            -  Key: jayskey
+               Value: jayskeyvalue
+  VPCGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+        InternetGatewayId:
+          Ref: InternetGateway
+        VpcId: 
+          Ref: VPC
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+        Tags:
+            - Key: jayskey
+              Value: jayskeyvalue
+        VpcId: 
+          Ref: VPC
+  PublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: VPCGatewayAttachment
+    Properties:
+       RouteTableId:
+         Ref: PublicRouteTable
+       DestinationCidrBlock: 0.0.0.0/0
+       GatewayId:
+         Ref: InternetGateway
+  SubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+        RouteTableId:
+          Ref: PublicRouteTable
+        SubnetId: 
+          Ref: Subnet
+  EC2Instance: 
+   Type: AWS::EC2::Instance
+   Properties: 
+    ImageId: ami-0947d2ba12ee1ff75
+    AvailabilityZone: us-east-1a
+    InstanceType: t2.micro
+    NetworkInterfaces:
+        - AssociatePublicIpAddress: True
+          DeviceIndex: 0
+          GroupSet:
+            - Ref: SecurityGroup
+          SubnetId: 
+            Ref: Subnet
+    Tags:
+        - Key: Name 
+          Value: ApacheWebserver
+    UserData: 
+        Fn::Base64: 
+         !Sub |
+           #!/bin/bash
+            yum update -y
+            yum -y install httpd
+            systemctl enable httpd
+            systemctl start httpd.service
+  SecurityGroup:
+   Type: AWS::EC2::SecurityGroup
+   Properties:
+    GroupDescription: SecurityGroup
+    VpcId: 
+      Ref: VPC
+    SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: 80
+        ToPort: 80
+        CidrIp: 0.0.0.0/0
+    Tags:
+      - Key: jayskey
+        Value: jayskeyvalue
